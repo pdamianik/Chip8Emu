@@ -16,7 +16,7 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
- use std::{fs::File, io::Write, sync::{Arc, Mutex, mpsc::{Receiver, Sender}}, thread, time::Duration, usize};
+ use std::{fs::File, io::Write, sync::{Arc, Mutex, mpsc::{Receiver, Sender}}, time::Duration, usize};
 
 use rand::{Rng, prelude::ThreadRng};
 
@@ -29,106 +29,82 @@ pub mod keyboard;
 
 /// All available instruction types for the chip-8 cpu
 #[derive(Debug)]
-pub enum InstructionType {
+pub enum Instruction {
     /// Calls machine code routine
-    Call,
+    Call(u16),
     /// Clears the screen
     DispClr,
     /// Returns from subroutine
     FlowRet,
     /// Jumps to address
-    FlowJmp,
+    FlowJmp(u16),
     /// Calls subroutine
-    FlowCall,
+    FlowCall(u16),
     /// Skips if register is equal to literal
-    CondEqL,
+    CondEqL(u8, u8),
     /// Skips if register is not equal to literal
-    CondNoEqL,
+    CondNoEqL(u8, u8),
     /// Skips if register is equal to register
-    CondEqRg,
+    CondEqRg(u8, u8),
     /// Sets register
-    RegConst,
+    RegConst(u8, u8),
     /// Adds to register
-    RegAdd,
+    RegAdd(u8, u8),
     /// Sets one register to the value of another register
-    Assign,
+    Assign(u8, u8),
     /// Bitwise OR
-    BitOr,
+    BitOr(u8, u8),
     /// Bitwise AND
-    BitAnd,
+    BitAnd(u8, u8),
     /// Bitwise XOR
-    BitXor,
+    BitXor(u8, u8),
     /// Addition
-    MathAdd,
+    MathAdd(u8, u8),
     /// Subtraction
-    MathSub,
+    MathSub(u8, u8),
     /// Bitwise Shift right, store least significant bit of initial value in other register
-    BitShiftR,
+    BitShiftR(u8, u8),
     /// Store Vy-Vx in Vx
-    InvertSub,
+    InvertSub(u8, u8),
     /// Bitwise Shift left, store most significant bit of initial value in other register
-    BitShiftL,
+    BitShiftL(u8, u8),
     /// Skips if register is not equal to register
-    CondNoEqRg,
+    CondNoEqRg(u8, u8),
     /// Sets the memory pointer I
-    SetPoint,
+    SetPoint(u16),
     /// Jumps to address + V0
-    FlowJmpV0,
+    FlowJmpV0(u16),
     /// Random generation
-    RNG,
+    RNG(u8, u8),
     /// Draw
-    DispDraw,
+    DispDraw(u8, u8, u8),
     /// Skip if key is pressed
-    CondKey,
+    CondKey(u8),
     /// Skip if key is not pressed
-    CondNotKey,
+    CondNotKey(u8),
     /// Store the value of the delay timer in a register
-    DelTimrGet,
+    DelTimrGet(u8),
     /// Wait for a key press and store key
-    WaitKey,
+    WaitKey(u8),
     /// Set the delay timer
-    DelTimrSet,
+    DelTimrSet(u8),
     /// Set the delay timer
-    SndTimrSet,
+    SndTimrSet(u8),
     /// Add register to pointer (no status register change)
-    PointAdd,
+    PointAdd(u8),
     /// Set the pointer to the location of a character
-    PointChar,
+    PointChar(u8),
     /// Store the BCD representation of register at I
-    BCDStore,
+    BCDStore(u8),
     /// Saves register to memory
-    RegDmp,
+    RegDmp(u8),
     /// Loads regsiter from memory
-    RegLoad,
+    RegLoad(u8),
     /// No operation
     StopExecution,
 }
 
-/// A representation of a single decoded instruction containing the instruction type and the instructions parameters
-#[derive(Debug)]
-pub struct Instruction {
-    /// Instruction type
-    insttype: InstructionType,
-    /// An address Parameter
-    nnn: Option<u16>,
-    /// A one byte constant
-    nn: Option<u8>,
-    /// A half byte constant
-    n: Option<u8>,
-    /// The first register identifier
-    x: Option<u8>,
-    /// The second register identifier
-    y: Option<u8>,
-}
-
-impl Instruction {
-    fn param<P>(param: Option<P>) -> Result<P,()> {
-        param.ok_or(())
-    }
-}
-
 // Constants
-
 /// instructions per second
 const EXEC_SPEED: u64 = 700;
 /// delay between instructions
@@ -251,329 +227,77 @@ impl Chip8Emu {
         ];
         match nibs {
             // Clear the display
-            [0x0, 0x0, 0xE, 0x0] => Instruction {
-                insttype: InstructionType::DispClr,
-                nnn: None,
-                nn: None,
-                n: None,
-                x: None,
-                y: None,
-            },
+            [0x0, 0x0, 0xE, 0x0] => Instruction::DispClr,
             // Return from subroutine
-            [0x0, 0x0, 0xE, 0xE] => Instruction {
-                insttype: InstructionType::FlowRet,
-                nnn: None,
-                nn: None,
-                n: None,
-                x: None,
-                y: None,
-            },
+            [0x0, 0x0, 0xE, 0xE] => Instruction::FlowRet,
             // Call machine code routine
-            [0x0, _, _, _] => Instruction {
-                insttype: InstructionType::Call,
-                nnn: Some(inst & 0xFFF),
-                nn: None,
-                n: None,
-                x: None,
-                y: None,
-            },
+            [0x0, _, _, _] => Instruction::Call(inst & 0xFFF),
             // Jump to address
-            [0x1, _, _, _] => Instruction {
-                insttype: InstructionType::FlowJmp,
-                nnn: Some(inst & 0xFFF),
-                nn: None,
-                n: None,
-                x: None,
-                y: None,
-            },
+            [0x1, _, _, _] => Instruction::FlowJmp(inst & 0xFFF),
             // Call subroutine
-            [0x2, _, _, _] => Instruction {
-                insttype: InstructionType::FlowCall,
-                nnn: Some(inst & 0xFFF),
-                nn: None,
-                n: None,
-                x: None,
-                y: None,
-            },
+            [0x2, _, _, _] => Instruction::FlowCall(inst & 0xFFF),
             // Skip if register is equal to literal
-            [0x3, _, _, _] => Instruction {
-                insttype: InstructionType::CondEqL,
-                nnn: None,
-                nn: Some((inst & 0xFF) as u8),
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: None,
-            },
+            [0x3, _, _, _] => Instruction::CondEqL((inst >> 8 & 0xF) as u8, (inst & 0xFF) as u8),
             // Skip if register is not equal to literal
-            [0x4, _, _, _] => Instruction {
-                insttype: InstructionType::CondNoEqL,
-                nnn: None,
-                nn: Some((inst & 0xFF) as u8),
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: None,
-            },
+            [0x4, _, _, _] => Instruction::CondNoEqL((inst >> 8 & 0xF) as u8, (inst & 0xFF) as u8),
             // Skip if register is equal to register
-            [0x5, _, _, 0x0] => Instruction {
-                insttype: InstructionType::CondEqRg,
-                nnn: None,
-                nn: None,
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: Some((inst >> 4 & 0xF) as u8),
-            },
+            [0x5, _, _, 0x0] => Instruction::CondEqRg((inst >> 8 & 0xF) as u8, (inst >> 4 & 0xF) as u8),
             // Set register to literal
-            [0x6, _, _, _] => Instruction {
-                insttype: InstructionType::RegConst,
-                nnn: None,
-                nn: Some((inst & 0xFF) as u8),
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: None,
-            },
+            [0x6, _, _, _] => Instruction::RegConst((inst >> 8 & 0xF) as u8, (inst & 0xFF) as u8),
             // Add literal to register
-            [0x7, _, _, _] => Instruction {
-                insttype: InstructionType::RegAdd,
-                nnn: None,
-                nn: Some((inst & 0xFF) as u8),
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: None,
-            },
+            [0x7, _, _, _] => Instruction::RegAdd((inst >> 8 & 0xF) as u8, (inst & 0xFF) as u8),
             // Set register to other register
-            [0x8, _, _, 0x0] => Instruction {
-                insttype: InstructionType::Assign,
-                nnn: None,
-                nn: None,
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: Some((inst >> 4 & 0xF) as u8),
-            },
+            [0x8, _, _, 0x0] => Instruction::Assign((inst >> 8 & 0xF) as u8, (inst >> 4 & 0xF) as u8),
             // Bitwise OR
-            [0x8, _, _, 0x1] => Instruction {
-                insttype: InstructionType::BitOr,
-                nnn: None,
-                nn: None,
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: Some((inst >> 4 & 0xF) as u8),
-            },
+            [0x8, _, _, 0x1] => Instruction::BitOr((inst >> 8 & 0xF) as u8, (inst >> 4 & 0xF) as u8),
             // Bitwise AND
-            [0x8, _, _, 0x2] => Instruction {
-                insttype: InstructionType::BitAnd,
-                nnn: None,
-                nn: None,
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: Some((inst >> 4 & 0xF) as u8),
-            },
+            [0x8, _, _, 0x2] => Instruction::BitAnd((inst >> 8 & 0xF) as u8, (inst >> 4 & 0xF) as u8),
             // Bitwise XOR
-            [0x8, _, _, 0x3] => Instruction {
-                insttype: InstructionType::BitXor,
-                nnn: None,
-                nn: None,
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: Some((inst >> 4 & 0xF) as u8),
-            },
+            [0x8, _, _, 0x3] => Instruction::BitXor((inst >> 8 & 0xF) as u8, (inst >> 4 & 0xF) as u8),
             // Register add
-            [0x8, _, _, 0x4] => Instruction {
-                insttype: InstructionType::MathAdd,
-                nnn: None,
-                nn: None,
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: Some((inst >> 4 & 0xF) as u8),
-            },
+            [0x8, _, _, 0x4] => Instruction::MathAdd((inst >> 8 & 0xF) as u8, (inst >> 4 & 0xF) as u8),
             // Register subtract
-            [0x8, _, _, 0x5] => Instruction {
-                insttype: InstructionType::MathSub,
-                nnn: None,
-                nn: None,
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: Some((inst >> 4 & 0xF) as u8),
-            },
+            [0x8, _, _, 0x5] => Instruction::MathSub((inst >> 8 & 0xF) as u8, (inst >> 4 & 0xF) as u8),
             // Bitwise shift right
-            [0x8, _, _, 0x6] => Instruction {
-                insttype: InstructionType::BitShiftR,
-                nnn: None,
-                nn: None,
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: Some((inst >> 4 & 0xF) as u8),
-            },
+            [0x8, _, _, 0x6] => Instruction::BitShiftR((inst >> 8 & 0xF) as u8, (inst >> 4 & 0xF) as u8),
             // Store Vy-Vx in Vx
-            [0x8, _, _, 0xE7] => Instruction {
-                insttype: InstructionType::InvertSub,
-                nnn: None,
-                nn: None,
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: Some((inst >> 4 & 0xF) as u8),
-            },
+            [0x8, _, _, 0xE7] => Instruction::InvertSub((inst >> 8 & 0xF) as u8, (inst >> 4 & 0xF) as u8),
             // Bitwise shift left
-            [0x8, _, _, 0xE] => Instruction {
-                insttype: InstructionType::BitShiftL,
-                nnn: None,
-                nn: None,
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: Some((inst >> 4 & 0xF) as u8),
-            },
+            [0x8, _, _, 0xE] => Instruction::BitShiftL((inst >> 8 & 0xF) as u8, (inst >> 4 & 0xF) as u8),
             // Skips if register is not equal to register
-            [0x9, _, _, 0x0] => Instruction {
-                insttype: InstructionType::CondNoEqRg,
-                nnn: None,
-                nn: None,
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: Some((inst >> 4 & 0xF) as u8),
-            },
+            [0x9, _, _, 0x0] => Instruction::CondNoEqRg((inst >> 8 & 0xF) as u8, (inst >> 4 & 0xF) as u8),
             // Set I (the memory pointer)
-            [0xA, _, _, _] => Instruction {
-                insttype: InstructionType::SetPoint,
-                nnn: Some((inst & 0xFFF) as u16),
-                nn: None,
-                n: None,
-                x: None,
-                y: None,
-            },
+            [0xA, _, _, _] => Instruction::SetPoint(inst & 0xFFF),
             // Jump to address plus V0
-            [0xB, _, _, _] => Instruction {
-                insttype: InstructionType::FlowJmpV0,
-                nnn: Some((inst & 0xFFF) as u16),
-                nn: None,
-                n: None,
-                x: None,
-                y: None,
-            },
+            [0xB, _, _, _] => Instruction::FlowJmpV0(inst & 0xFFF),
             // random number generation
-            [0xC, _, _, _] => Instruction {
-                insttype: InstructionType::RNG,
-                nnn: None,
-                nn: Some((inst & 0xFF) as u8),
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: None,
-            },
+            [0xC, _, _, _] => Instruction::RNG((inst >> 8 & 0xF) as u8, (inst & 0xFF) as u8),
             // draw sprite
-            [0xD, _, _, _] => Instruction {
-                insttype: InstructionType::DispDraw,
-                nnn: None,
-                nn: None,
-                n: Some((inst & 0xF) as u8),
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: Some((inst >> 4 & 0xF) as u8),
-            },
+            [0xD, _, _, _] => Instruction::DispDraw((inst >> 8 & 0xF) as u8, (inst >> 4 & 0xF) as u8, (inst & 0xF) as u8),
             // key press skip
-            [0xE, _, 0x9, 0xE] => Instruction {
-                insttype: InstructionType::CondKey,
-                nnn: None,
-                nn: None,
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: None,
-            },
+            [0xE, _, 0x9, 0xE] => Instruction::CondKey((inst >> 8 & 0xF) as u8),
             // no key press skip
-            [0xE, _, 0xA, 0x1] => Instruction {
-                insttype: InstructionType::CondNotKey,
-                nnn: None,
-                nn: None,
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: None,
-            },
+            [0xE, _, 0xA, 0x1] => Instruction::CondNotKey((inst >> 8 & 0xF) as u8),
             // store value of timer in register
-            [0xF, _, 0x0, 0x7] => Instruction {
-                insttype: InstructionType::DelTimrGet,
-                nnn: None,
-                nn: None,
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: None,
-            },
+            [0xF, _, 0x0, 0x7] => Instruction::DelTimrGet((inst >> 8 & 0xF) as u8),
             // wait for key press and store the key in register
-            [0xF, _, 0x0, 0xA] => Instruction {
-                insttype: InstructionType::WaitKey,
-                nnn: None,
-                nn: None,
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: None,
-            },
+            [0xF, _, 0x0, 0xA] => Instruction::WaitKey((inst >> 8 & 0xF) as u8),
             // set timer from register value
-            [0xF, _, 0x1, 0x5] => Instruction {
-                insttype: InstructionType::DelTimrSet,
-                nnn: None,
-                nn: None,
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: None,
-            },
+            [0xF, _, 0x1, 0x5] => Instruction::DelTimrSet((inst >> 8 & 0xF) as u8),
             // set sound timer from register value
-            [0xF, _, 0x1, 0x8] => Instruction {
-                insttype: InstructionType::SndTimrSet,
-                nnn: None,
-                nn: None,
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: None,
-            },
+            [0xF, _, 0x1, 0x8] => Instruction::SndTimrSet((inst >> 8 & 0xF) as u8),
             // add to memory pointer (I)
-            [0xF, _, 0x1, 0xE] => Instruction {
-                insttype: InstructionType::PointAdd,
-                nnn: None,
-                nn: None,
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: None,
-            },
+            [0xF, _, 0x1, 0xE] => Instruction::PointAdd((inst >> 8 & 0xF) as u8),
             // let memory pointer point to character of default font
-            [0xF, _, 0x2, 0x9] => Instruction {
-                insttype: InstructionType::PointChar,
-                nnn: None,
-                nn: None,
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: None,
-            },
+            [0xF, _, 0x2, 0x9] => Instruction::PointChar((inst >> 8 & 0xF) as u8),
             // store BCD of register in memory at memory pointer (I)
-            [0xF, _, 0x3, 0x3] => Instruction {
-                insttype: InstructionType::BCDStore,
-                nnn: None,
-                nn: None,
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: None,
-            },
-            // store register in memory at memory pointer (I)
-            [0xF, _, 0x5, 0x5] => Instruction {
-                insttype: InstructionType::RegDmp,
-                nnn: None,
-                nn: None,
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: None,
-            },
-            // load register from memory at memory pointer (I)
-            [0xF, _, 0x6, 0x5] => Instruction {
-                insttype: InstructionType::RegLoad,
-                nnn: None,
-                nn: None,
-                n: None,
-                x: Some((inst >> 8 & 0xF) as u8),
-                y: None,
-            },
+            [0xF, _, 0x3, 0x3] => Instruction::BCDStore((inst >> 8 & 0xF) as u8),
+            // store register V0 to Vx in memory at memory pointer (I)
+            [0xF, _, 0x5, 0x5] => Instruction::RegDmp((inst >> 8 & 0xF) as u8),
+            // load register V0 to Vx from memory at memory pointer (I)
+            [0xF, _, 0x6, 0x5] => Instruction::RegLoad((inst >> 8 & 0xF) as u8),
             // No operation
-            _ => Instruction {
-                insttype: InstructionType::StopExecution,
-                nnn: None,
-                nn: None,
-                n: None,
-                x: None,
-                y: None,
-            }
+            _ => Instruction::StopExecution
         }
     }
 
@@ -581,161 +305,155 @@ impl Chip8Emu {
     fn execute(&mut self, inst: &Instruction) -> Result<(), ()> {
         self.keyboard.recieve_key()?;
 
-        match inst.insttype {
+        match inst {
             // Calls machine code routine
-            InstructionType::Call => {
-                //eprint!("Not implemented: {:?}", inst);
+            Instruction::Call(nnn) => {
+                #[cfg(debug_assertions)]
+                writeln!(self.log, "WARNING: Call to unknown internal code at {}", nnn).unwrap();
                 Ok(())
             },
             // Clears the screen
-            InstructionType::DispClr => {
+            Instruction::DispClr => {
                 self.display.clear();
                 Ok(())
             },
             // Returns from subroutine
-            InstructionType::FlowRet => {
+            Instruction::FlowRet => {
                 self.sp -= 1;
                 self.pc = self.stack[self.sp as usize];
                 self.stack[self.sp as usize] = 0x0;
                 Ok(())
             },
             // Jumps to address
-            InstructionType::FlowJmp => {
-                self.pc = Instruction::param(inst.nnn)?;
+            Instruction::FlowJmp(nnn) => {
+                self.pc = *nnn;
                 Ok(())
             },
             // Calls subroutine
-            InstructionType::FlowCall => {
+            Instruction::FlowCall(nnn) => {
                 self.stack[self.sp as usize] = self.pc;
                 self.sp += 1;
-                self.pc = Instruction::param(inst.nnn)?;
+                self.pc = *nnn;
                 Ok(())
             },
             // Skips if register is equal to literal
-            InstructionType::CondEqL => {
-                if self.reg[Instruction::param(inst.x)? as usize] == Instruction::param(inst.nn)? {
+            Instruction::CondEqL(x, nn) => {
+                if self.reg[*x as usize] == *nn {
                     self.pc += 2;
                 }
                 Ok(())
             },
             // Skips if register is not equal to literal
-            InstructionType::CondNoEqL => {
-                if self.reg[Instruction::param(inst.x)? as usize] != Instruction::param(inst.nn)? {
+            Instruction::CondNoEqL(x, nn) => {
+                if self.reg[*x as usize] != *nn {
                     self.pc += 2;
                 }
                 Ok(())
             },
             // Skips if register is equal to register
-            InstructionType::CondEqRg => {
-                if self.reg[Instruction::param(inst.x)? as usize] == self.reg[Instruction::param(inst.y)? as usize] {
+            Instruction::CondEqRg(x, y) => {
+                if self.reg[*x as usize] == self.reg[*y as usize] {
                     self.pc += 2;
                 }
                 Ok(())
             },
             // Sets register
-            InstructionType::RegConst => {
-                self.reg[Instruction::param(inst.x)? as usize] = Instruction::param(inst.nn)?;
+            Instruction::RegConst(x, nn) => {
+                self.reg[*x as usize] = *nn;
                 Ok(())
             },
             // Adds to register
-            InstructionType::RegAdd => {
-                self.reg[Instruction::param(inst.x)? as usize] += Instruction::param(inst.nn)?;
+            Instruction::RegAdd(x, nn) => {
+                self.reg[*x as usize] += *nn;
                 Ok(())
             },
             // Sets one register to the value of another register
-            InstructionType::Assign => {
-                self.reg[Instruction::param(inst.x)? as usize] = self.reg[Instruction::param(inst.y)? as usize];
+            Instruction::Assign(x, y) => {
+                self.reg[*x as usize] = self.reg[*y as usize];
                 Ok(())
             },
             // Bitwise OR
-            InstructionType::BitOr => {
-                self.reg[Instruction::param(inst.x)? as usize] |= self.reg[Instruction::param(inst.y)? as usize];
+            Instruction::BitOr(x, y) => {
+                self.reg[*x as usize] |= self.reg[*y as usize];
                 Ok(())
             },
             // Bitwise AND
-            InstructionType::BitAnd => {
-                self.reg[Instruction::param(inst.x)? as usize] &= self.reg[Instruction::param(inst.y)? as usize];
+            Instruction::BitAnd(x, y) => {
+                self.reg[*x as usize] &= self.reg[*y as usize];
                 Ok(())
             },
             // Bitwise XOR
-            InstructionType::BitXor => {
-                self.reg[Instruction::param(inst.x)? as usize] ^= self.reg[Instruction::param(inst.y)? as usize];
+            Instruction::BitXor(x, y) => {
+                self.reg[*x as usize] ^= self.reg[*y as usize];
                 Ok(())
             },
             // Addition
-            InstructionType::MathAdd => {
-                let x = Instruction::param(inst.x)? as usize;
-                let result = self.reg[x] as u16 + self.reg[Instruction::param(inst.y)? as usize] as u16;
+            Instruction::MathAdd(x, y) => {
+                let result = self.reg[*x as usize] as u16 + self.reg[*y as usize] as u16;
 
                 self.reg[0xF] = (result >> 8) as u8;
-                self.reg[x] = result as u8;
+                self.reg[*x as usize] = result as u8;
                 Ok(())
             },
             // Subtraction
-            InstructionType::MathSub => {
-                let x = Instruction::param(inst.x)? as usize;
-                let y = self.reg[Instruction::param(inst.y)? as usize];
-                if y > self.reg[x] {
+            Instruction::MathSub(x, y) => {
+                if self.reg[*y as usize] > self.reg[*x as usize] {
                     self.reg[0xF] = 1
                 } else {
                     self.reg[0xF] = 0
                 }
-                self.reg[x] -= y;
+                self.reg[*x as usize] -= self.reg[*y as usize];
                 Ok(())
             },
-            // Bitwise Shift right, store least significant bit of initial value in other register
-            InstructionType::BitShiftR => {
-                let x = Instruction::param(inst.x)? as usize;
-                self.reg[0xF] = self.reg[x] & 0b1;
-                self.reg[x] >>= 1;
+            // Bitwise Shift right, store least significant bit of initial value in VF
+            Instruction::BitShiftR(x, _y) => {
+                self.reg[0xF] = self.reg[*x as usize] & 0b1;
+                self.reg[*x as usize] >>= 1;
                 Ok(())
             },
             // Store Vy-Vx in Vx
-            InstructionType::InvertSub => {
-                let x = Instruction::param(inst.x)? as usize;
-                let y = self.reg[Instruction::param(inst.y)? as usize];
-                if self.reg[x] > y {
+            Instruction::InvertSub(x, y) => {
+                if self.reg[*x as usize] > self.reg[*y as usize] {
                     self.reg[0xF] = 1
                 } else {
                     self.reg[0xF] = 0
                 }
-                self.reg[x] = y - self.reg[x];
+                self.reg[*x as usize] = y - self.reg[*x as usize];
                 Ok(())
             },
-            // Bitwise Shift left, store most significant bit of initial value in other register
-            InstructionType::BitShiftL => {
-                let x = Instruction::param(inst.x)? as usize;
-                self.reg[0xF] = self.reg[x] >> 7;
-                self.reg[x] <<= 1;
+            // Bitwise Shift left, store most significant bit of initial value in VF
+            Instruction::BitShiftL(x, _y) => {
+                self.reg[0xF] = self.reg[*x as usize] >> 7;
+                self.reg[*x as usize] <<= 1;
                 Ok(())
             },
             // Skips if register is not equal to register
-            InstructionType::CondNoEqRg => {
-                if self.reg[Instruction::param(inst.x)? as usize] != self.reg[Instruction::param(inst.y)? as usize] {
+            Instruction::CondNoEqRg(x, y) => {
+                if self.reg[*x as usize] != self.reg[*y as usize] {
                     self.pc += 2;
                 }
                 Ok(())
             },
             // Sets the memory pointer I
-            InstructionType::SetPoint => {
-                self.i = Instruction::param(inst.nnn)?;
+            Instruction::SetPoint(nnn) => {
+                self.i = *nnn;
                 Ok(())
             },
             // Jump to address + V0
-            InstructionType::FlowJmpV0 => {
-                self.pc = Instruction::param(inst.nnn)? + self.reg[0] as u16;
+            Instruction::FlowJmpV0(nnn) => {
+                self.pc = *nnn + self.reg[0] as u16;
                 Ok(())
             },
             // Random generation
-            InstructionType::RNG => {
-                self.reg[Instruction::param(inst.x)? as usize] = ThreadRng::default().gen_range(0..255) & Instruction::param(inst.nn)?;
+            Instruction::RNG(x, nn) => {
+                self.reg[*x as usize] = ThreadRng::default().gen_range(0..255) & *nn;
                 Ok(())
             },
             // Draw
-            InstructionType::DispDraw => {
-                let x = self.reg[Instruction::param(inst.x)? as usize];
-                let y = self.reg[Instruction::param(inst.y)? as usize];
-                let n = Instruction::param(inst.n)? as u16;
+            Instruction::DispDraw(x, y, n) => {
+                let x = self.reg[*x as usize];
+                let y = self.reg[*y as usize];
+                let n = *n as u16;
                 let data = &self.ram[self.i..=self.i+n-1];
 
                 let sprite = display::Sprite {
@@ -753,66 +471,66 @@ impl Chip8Emu {
                 }
             },
             // Skip if key is pressed
-            InstructionType::CondKey => {
-                if self.keyboard.is_key_pressed(self.reg[Instruction::param(inst.x)? as usize]) {
+            Instruction::CondKey(x) => {
+                if self.keyboard.is_key_pressed(self.reg[*x as usize]) {
                     self.pc += 2;
                 }
                 Ok(())
             },
             // Skip if key is not pressed
-            InstructionType::CondNotKey => {
-                if !self.keyboard.is_key_pressed(self.reg[Instruction::param(inst.x)? as usize]) {
+            Instruction::CondNotKey(x) => {
+                if !self.keyboard.is_key_pressed(self.reg[*x as usize]) {
                     self.pc += 2;
                 }
                 Ok(())
             },
             // Store the value of the delay timer in a register
-            InstructionType::DelTimrGet => {
+            Instruction::DelTimrGet(x) => {
                 let dtime_access = match self.time.dtime.lock() {
                     Ok(guard) => guard,
                     Err(_) => return Err(()),
                 };
-                self.reg[Instruction::param(inst.x)? as usize] = *dtime_access;
+                self.reg[*x as usize] = *dtime_access;
                 Ok(())
             },
             // Wait for a key press and store key
-            InstructionType::WaitKey => {
+            Instruction::WaitKey(x) => {
                 let key = self.keyboard.wait_for_key()?;
-                self.reg[Instruction::param(inst.x)? as usize] = key;                
+                self.reg[*x as usize] = key;                
 
                 Ok(())
             },
             // Set the delay timer
-            InstructionType::DelTimrSet => {
+            Instruction::DelTimrSet(x) => {
                 let mut dtime_access = match self.time.dtime.lock() {
                     Ok(guard) => guard,
                     Err(_) => return Err(()),
                 };
-                *dtime_access = self.reg[Instruction::param(inst.x)? as usize];
+                *dtime_access = self.reg[*x as usize];
                 Ok(())
             },
             // Set the delay timer
-            InstructionType::SndTimrSet => {
+            Instruction::SndTimrSet(x) => {
                 let mut stime_access = match self.time.stime.lock() {
                     Ok(guard) => guard,
                     Err(_) => return Err(()),
                 };
-                *stime_access = self.reg[Instruction::param(inst.x)? as usize];
+                *stime_access = self.reg[*x as usize];
                 Ok(())
             },
             // Add register to pointer (no status register change)
-            InstructionType::PointAdd => {
-                self.i += self.reg[Instruction::param(inst.x)? as usize] as u16;
+            Instruction::PointAdd(x) => {
+                self.i += self.reg[*x as usize] as u16;
                 Ok(())
             },
             // Set the pointer to the location of a character
-            InstructionType::PointChar => {
-                self.i = DEFAULT_FONTPACK_LOCATION as u16 + self.reg[Instruction::param(inst.x)? as usize] as u16 * 5;
+            Instruction::PointChar(x) => {
+                self.i = DEFAULT_FONTPACK_LOCATION as u16 + self.reg[*x as usize] as u16 * 5;
                 Ok(())
             },
             // Store the BCD representation of register at I
-            InstructionType::BCDStore => {
-                let mut x = self.reg[Instruction::param(inst.x)? as usize];
+            Instruction::BCDStore(x) => {
+                let mut x = self.reg[*x as usize];
                 const BASE: u8 = 10;
 
                 for i in 0u16..=2 {
@@ -823,25 +541,23 @@ impl Chip8Emu {
                 Ok(())
             },
             // Saves register to memory
-            InstructionType::RegDmp => {
-                let x = Instruction::param(inst.x)? as u16;
-                for reg_id in 0x0..=x {
+            Instruction::RegDmp(x) => {
+                for reg_id in 0x0..=(*x as u16) {
                     self.ram[self.i+reg_id] = self.reg[reg_id as usize];
                 }
 
                 Ok(())
             },
             // Loads regsiter from memory
-            InstructionType::RegLoad => {
-                let x = Instruction::param(inst.x)? as u16;
-                for reg_id in 0x0..=x {
+            Instruction::RegLoad(x) => {
+                for reg_id in 0x0..=(*x as u16) {
                     self.reg[reg_id as usize] = self.ram[self.i+reg_id];
                 }
 
                 Ok(())
             },
             // No operation
-            InstructionType::StopExecution => {
+            Instruction::StopExecution => {
                 Err(())
             },
         }

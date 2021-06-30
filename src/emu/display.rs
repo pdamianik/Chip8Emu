@@ -82,6 +82,10 @@ impl Display {
 		writeln!(self.logfile, "left {:?}", left).unwrap();
 
 		for (index, row) in data.iter().enumerate() {
+			if y as usize + index >= 32 {
+				break;
+			}
+
 			let buf_row;
 			if left {
 				buf_row = (*row as u64) << (56 - x); // stretch the current row to full width

@@ -78,5 +78,4 @@ pub const ENABLE_LVB_GRID_WORLDWIDE: DWORD          = 0x0010;
 extern "system" {
 	pub fn GetConsoleMode(hConsoleHandle: HANDLE, lpMode: LPDWORD) -> BOOL;
 	pub fn SetConsoleMode(hConsoleHandle: HANDLE, dwMode: DWORD) -> BOOL;
-	pub fn GetLastError() -> DWORD;
 }
