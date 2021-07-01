@@ -27,79 +27,91 @@ mod timer;
 pub mod display;
 pub mod keyboard;
 
+// types for parameters
+/// A 12-Bit address
+type NNN = u16;
+/// A 8-Bit constant
+type NN = u8;
+/// A 4-Bit constant
+type N = u8;
+/// The 4-Bit identifier V[0] to V[F] of a register
+type X = u8;
+/// The 4-Bit identifier V[0] to V[F] of a second register
+type Y = u8;
+
 /// All available instruction types for the chip-8 cpu
 #[derive(Debug)]
 pub enum Instruction {
     /// Calls machine code routine
-    Call(u16),
+    Call(NNN),
     /// Clears the screen
     DispClr,
     /// Returns from subroutine
     FlowRet,
     /// Jumps to address
-    FlowJmp(u16),
+    FlowJmp(NNN),
     /// Calls subroutine
-    FlowCall(u16),
+    FlowCall(NNN),
     /// Skips if register is equal to literal
-    CondEqL(u8, u8),
+    CondEqL(X, NN),
     /// Skips if register is not equal to literal
-    CondNoEqL(u8, u8),
+    CondNoEqL(X, NN),
     /// Skips if register is equal to register
-    CondEqRg(u8, u8),
+    CondEqRg(X, Y),
     /// Sets register
-    RegConst(u8, u8),
+    RegConst(X, NN),
     /// Adds to register
-    RegAdd(u8, u8),
+    RegAdd(X, NN),
     /// Sets one register to the value of another register
-    Assign(u8, u8),
+    Assign(X, Y),
     /// Bitwise OR
-    BitOr(u8, u8),
+    BitOr(X, Y),
     /// Bitwise AND
-    BitAnd(u8, u8),
+    BitAnd(X, Y),
     /// Bitwise XOR
-    BitXor(u8, u8),
+    BitXor(X, Y),
     /// Addition
-    MathAdd(u8, u8),
+    MathAdd(X, Y),
     /// Subtraction
-    MathSub(u8, u8),
+    MathSub(X, Y),
     /// Bitwise Shift right, store least significant bit of initial value in other register
-    BitShiftR(u8, u8),
+    BitShiftR(X, Y),
     /// Store Vy-Vx in Vx
-    InvertSub(u8, u8),
+    InvertSub(X, Y),
     /// Bitwise Shift left, store most significant bit of initial value in other register
-    BitShiftL(u8, u8),
+    BitShiftL(X, Y),
     /// Skips if register is not equal to register
-    CondNoEqRg(u8, u8),
+    CondNoEqRg(X, Y),
     /// Sets the memory pointer I
-    SetPoint(u16),
+    SetPoint(NNN),
     /// Jumps to address + V0
-    FlowJmpV0(u16),
+    FlowJmpV0(NNN),
     /// Random generation
-    RNG(u8, u8),
+    RNG(X, NN),
     /// Draw
-    DispDraw(u8, u8, u8),
+    DispDraw(X, Y, N),
     /// Skip if key is pressed
-    CondKey(u8),
+    CondKey(X),
     /// Skip if key is not pressed
-    CondNotKey(u8),
+    CondNotKey(X),
     /// Store the value of the delay timer in a register
-    DelTimrGet(u8),
+    DelTimrGet(X),
     /// Wait for a key press and store key
-    WaitKey(u8),
+    WaitKey(X),
     /// Set the delay timer
-    DelTimrSet(u8),
+    DelTimrSet(X),
     /// Set the delay timer
-    SndTimrSet(u8),
+    SndTimrSet(X),
     /// Add register to pointer (no status register change)
-    PointAdd(u8),
+    PointAdd(X),
     /// Set the pointer to the location of a character
-    PointChar(u8),
+    PointChar(X),
     /// Store the BCD representation of register at I
-    BCDStore(u8),
+    BCDStore(X),
     /// Saves register to memory
-    RegDmp(u8),
+    RegDmp(X),
     /// Loads regsiter from memory
-    RegLoad(u8),
+    RegLoad(X),
     /// No operation
     StopExecution,
 }
