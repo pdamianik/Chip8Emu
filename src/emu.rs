@@ -180,8 +180,8 @@ impl Chip8Emu {
     pub fn new(rom: [u8; 0xE00]) -> Self {
         let mut ram = memory::Memory::new();
 
-        ram.load(&DEFAULT_FONTPACK, &DEFAULT_FONTPACK_LOCATION);
-        ram.load(&rom, &0x200);
+        ram.load(&DEFAULT_FONTPACK, DEFAULT_FONTPACK_LOCATION);
+        ram.load(&rom, 0x200);
 
         Self {
             ram, // RAM
@@ -321,7 +321,7 @@ impl Chip8Emu {
             // Calls machine code routine
             Instruction::Call(nnn) => {
                 #[cfg(debug_assertions)]
-                writeln!(self.log, "WARNING: Call to unknown internal code at {}", nnn).unwrap();
+                writeln!(self.log, "WARNING: Call to unknown internal platform dependent code at {}", nnn).unwrap();
                 Ok(())
             },
             // Clears the screen

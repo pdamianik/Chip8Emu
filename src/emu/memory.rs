@@ -43,7 +43,7 @@ impl Memory {
     }
 
     /// Loads a certain amount of data into RAM
-    pub fn load(&mut self, data: &[u8], start: &usize) {
+    pub fn load(&mut self, data: &[u8], start: usize) {
         for i in 0..data.len() as usize {
             self.mem[start+i] = data[i];
         }
