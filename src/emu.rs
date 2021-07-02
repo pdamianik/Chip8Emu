@@ -20,7 +20,7 @@
 
 use rand::{Rng, prelude::ThreadRng};
 
-use self::display::Change;
+use self::display::DisplayCmd;
 
 mod memory;
 mod timer;
@@ -579,7 +579,7 @@ impl Chip8Emu {
         self.time.beep.clone()
     }
 
-    pub fn get_screen_changes(&mut self) -> Receiver<Change> {
+    pub fn get_screen_changes(&mut self) -> Receiver<DisplayCmd> {
         self.display.get_changes_pipe()
     }
 

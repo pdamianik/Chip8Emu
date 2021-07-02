@@ -21,7 +21,7 @@
 #[cfg(target_os = "windows")]
 mod consoleapi;
 
-use crate::emu::display::Change;
+use crate::emu::display::DisplayCmd;
 
 #[cfg(target_os = "windows")]
 fn console_init() {
@@ -72,38 +72,38 @@ fn render_ui() {
 	io::stdout().flush().unwrap();
 }
 
-fn render_change(change: Change) {
-	// display clear, can be ignored
-	if change.data.len() == 0 {
-		return;
-	}
-
-	for (index, row) in change.data.iter().enumerate() {
-		print!("\x1b[{};{}H", change.y+index as u8+2 as u8, change.x as u8*2+2);
-		let mut mask = 0b1000_0000u8;
-		let end = min(64 - change.x, 8);
-		for _ in 0..end {
-			if row & mask == 0 {
-				print!("  ");
-			} else {
-				print!("\u{258D}\u{258D}");
+fn render_change(change: DisplayCmd) {
+	if let DisplayCmd::Change(data, x, y) = change {
+		for (index, row) in data.iter().enumerate() {
+			print!("\x1b[{};{}H", y+index as u8+2 as u8, x as u8*2+2);
+			let mut mask = 0b1000_0000u8;
+			let end = min(64 - x, 8);
+			for _ in 0..end {
+				if row & mask == 0 {
+					print!("  ");
+				} else {
+					print!("\u{258D}\u{258D}");
+				}
+				mask >>= 1;
 			}
-			mask >>= 1;
 		}
-	}
+	};
 
 	print!("\x1b[0;0H");
 	io::stdout().flush().unwrap();
 }
 
-fn render_changes(changes: Receiver<Change>) {
+fn render_changes(display_cmds: Receiver<DisplayCmd>) {
 	thread::spawn(move || {
 		loop {
-			let change = match changes.recv() {
-				Ok(change) => change,
+			let cmd = match display_cmds.recv() {
+				Ok(cmd) => cmd,
 				Err(_) => break,
 			};
-			render_change(change);
+			match cmd {
+				DisplayCmd::Change(_, _, _) => render_change(cmd),
+				DisplayCmd::Clear => (),
+			}
 		}
 	});
 }
@@ -145,7 +145,7 @@ fn bell_init(beep: Arc<Mutex<bool>>) {
 	});
 }
 
-pub fn init(changes: Receiver<Change>, keyboard_sender: Sender<[u8; 4]>, beep: Arc<Mutex<bool>>) {
+pub fn init(changes: Receiver<DisplayCmd>, keyboard_sender: Sender<[u8; 4]>, beep: Arc<Mutex<bool>>) {
 	#[cfg(target_os = "windows")]
 	console_init();
 	#[cfg(target_os = "windows")]

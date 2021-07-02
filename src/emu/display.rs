@@ -24,6 +24,9 @@
 		}
 	}, usize};
 
+/// A sprite consisting of binary data and location.
+/// A `1` in the binary data represents a change in color at that position
+/// whereas a `0` represents no change (like an xor with the existing data)
 #[derive(Debug)]
 pub struct Sprite<'a> {
 	pub data: &'a [u8],
@@ -31,21 +34,30 @@ pub struct Sprite<'a> {
 	pub y: u8,
 }
 
+/// An enum that contains all the possible commands for the view to process
 #[derive(Debug)]
-pub struct Change {
-	pub data: Vec<u8>,
-	pub x: u8,
-	pub y: u8,
+pub enum DisplayCmd {
+	/// A change in the display buffer due to a sprite being drawn to the display buffer.
+	/// The change consist of a data field containing the new look of the buffer at the given location
+	/// and the x and y coordinate of the change.
+	Change(Vec<u8>, u8, u8),
+	/// A command that indicates that the display should be cleared
+	Clear,
 }
 
+/// A representation of the screen of the emulator and its changes.
 pub struct Display {
+	/// This buffer contains the image to be displayed. It stores the screens state in binary form.
+	/// The screen is 64 pixels wide and 32 pixels high so the screen data gets stored as 32 64 bit rows with each
+	/// bit representing 1 pixel. The bits themselfs just represent two different colors at a given location
 	buffer: [u64; 32],
-	changes: Vec<Sender<Change>>,
+	changes: Vec<Sender<DisplayCmd>>,
 	#[cfg(debug_assertions)]
 	logfile: File,
 }
 
 impl Display {
+	/// constructs a new display
 	pub fn new() -> Self {
 		Self {
 			buffer: [0x0; 32],
@@ -58,11 +70,7 @@ impl Display {
 	pub fn clear(&mut self) {
 		self.buffer = [0x0; 32];
 		for tx in self.changes.iter() {
-			match tx.send(Change {
-				data: vec![],
-				x: 0,
-				y: 0,
-			}) {
+			match tx.send(DisplayCmd::Clear) {
 				Ok(_) => (),
 				Err(_) => (),
 			}
@@ -102,11 +110,7 @@ impl Display {
 		}
 
 		for tx in self.changes.iter() {
-			match tx.send(Change {
-				data: changes.clone(),
-				x,
-				y,
-			}) {
+			match tx.send(DisplayCmd::Change(changes.clone(), x, y)) {
 				Ok(_) => (),
 				Err(_) => (),
 			}
@@ -115,8 +119,8 @@ impl Display {
 		Ok(updated)
 	}
 
-	pub fn get_changes_pipe(&mut self) -> Receiver<Change> {
-		let (tx,rx) = channel::<Change>();
+	pub fn get_changes_pipe(&mut self) -> Receiver<DisplayCmd> {
+		let (tx,rx) = channel::<DisplayCmd>();
 		self.changes.push(tx);
 		rx
 	}
