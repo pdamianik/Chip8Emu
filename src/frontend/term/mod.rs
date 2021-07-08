@@ -1,6 +1,5 @@
 /*
-    Chip8Emu - a Chip-8 emulator
-    Copyright (C) 2021  Philip Damianik
+    Chip8Emu - a Chip-8 emulator Copyright (C) 2021  Philip Damianik
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -16,10 +15,13 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
- use std::{cmp::min, io::{self, Error, ErrorKind::Interrupted, Read, Write, stdin, stdout}, sync::{Arc, Mutex, mpsc::{Receiver, Sender}}, thread::{self, sleep}, time::Duration};
+use std::{cmp::min, io::{self, Error, ErrorKind::Interrupted, Read, Write, stdin, stdout}, sync::{Arc, Mutex, mpsc::{Receiver, Sender}}, thread::{self, sleep}, time::Duration};
 
 #[cfg(target_os = "windows")]
 mod consoleapi;
+
+#[cfg(unix)]
+mod termios_extended;
 
 use crate::emu::display::DisplayCmd;
 
@@ -55,6 +57,31 @@ fn console_init() {
 			//panic!("Failed to set the mode of the stdout console: {}", GetLastError());
 		}
 	}
+
+	print!("\x1b[?1049h\x1b[?25l\x1b]0;Chip-8 Emulator\x07\x1b[;H");
+
+	render_ui();
+
+	io::stdout().flush().unwrap();
+}
+
+#[cfg(unix)]
+fn console_init() {
+    use termios::{Termios,cfmakeraw,tcsetattr,TCSANOW};
+    use termios_extended::set_fastest_speed;
+    use std::os::unix::io::AsRawFd;
+
+    let fd_stdin = stdin().as_raw_fd();
+    let fd_stdout = stdout().as_raw_fd();
+    let mut termios_stdin = Termios::from_fd(fd_stdin).unwrap();
+    let mut termios_stdout = Termios::from_fd(fd_stdout).unwrap();
+
+    cfmakeraw(&mut termios_stdin);
+    cfmakeraw(&mut termios_stdout);
+    set_fastest_speed(&mut termios_stdin).unwrap();
+    set_fastest_speed(&mut termios_stdout).unwrap();
+    tcsetattr(fd_stdin, TCSANOW, &termios_stdin).unwrap();
+    tcsetattr(fd_stdout, TCSANOW, &termios_stdout).unwrap();
 
 	print!("\x1b[?1049h\x1b[?25l\x1b]0;Chip-8 Emulator\x07\x1b[;H");
 
@@ -146,13 +173,13 @@ fn bell_init(beep: Arc<Mutex<bool>>) {
 }
 
 pub fn init(changes: Receiver<DisplayCmd>, keyboard_sender: Sender<[u8; 4]>, beep: Arc<Mutex<bool>>) {
-	#[cfg(target_os = "windows")]
+	#[cfg(any(windows, unix))]
 	console_init();
-	#[cfg(target_os = "windows")]
+	#[cfg(any(windows, unix))]
 	render_changes(changes);
-	#[cfg(target_os = "windows")]
+	#[cfg(any(windows, unix))]
 	keyboard_init(keyboard_sender);
-	#[cfg(target_os = "windows")]
+	#[cfg(any(windows, unix))]
 	bell_init(beep);
 }
 
@@ -161,6 +188,6 @@ fn console_exit() {
 }
 
 pub fn exit() {
-	#[cfg(target_os = "windows")]
+	#[cfg(any(windows, unix))]
 	console_exit();
 }
