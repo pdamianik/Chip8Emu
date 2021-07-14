@@ -10,9 +10,6 @@ edition = "2018"
 cfg-if = "1.0.0"
 rand = "0.8.4"
 
-[target.'cfg(windows)'.dependencies]
-#winapi = { version = "0.3.9", features = ["consoleapi", "processenv", "winbase"] }
-
 [target.'cfg(unix)'.dependencies]
 termios = "0.3.3"
 
