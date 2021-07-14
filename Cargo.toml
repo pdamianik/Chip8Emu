@@ -11,11 +11,11 @@ cfg-if = "1.0.0"
 rand = "0.8.4"
 
 [target.'cfg(unix)'.dependencies]
-termios = "0.3.3"
+termios = { version = "0.3.3", optional = true }
 
 [features]
 default = ["tui"]
-tui = []
+tui = ["termios"]
 
 [profile.dev]
 overflow-checks = false
