@@ -60,78 +60,62 @@ fn init_keyboard_proxy(sender: Sender<u8>) -> Sender<[u8; 4]> {
                         [0x58, 0x0, 0x0, 0x0] |
                         [0x78, 0x0, 0x0, 0x0] => {
                             sender.send(0x0).unwrap();
-                            ()
                         },
                         [0x31, 0x0, 0x0, 0x0] => {
                             sender.send(0x1).unwrap();
-                            ()
                         },
                         [0x32, 0x0, 0x0, 0x0] => {
                             sender.send(0x2).unwrap();
-                            ()
                         },
                         [0x33, 0x0, 0x0, 0x0] => {
                             sender.send(0x3).unwrap();
-                            ()
                         },
                         [0x51, 0x0, 0x0, 0x0] |
                         [0x71, 0x0, 0x0, 0x0] => {
                             sender.send(0x4).unwrap();
-                            ()
                         },
                         [0x57, 0x0, 0x0, 0x0] |
                         [0x77, 0x0, 0x0, 0x0] => {
                             sender.send(0x5).unwrap();
-                            ()
                         },
                         [0x45, 0x0, 0x0, 0x0] |
                         [0x65, 0x0, 0x0, 0x0] => {
                             sender.send(0x6).unwrap();
-                            ()
                         },
                         [0x41, 0x0, 0x0, 0x0] | 
                         [0x61, 0x0, 0x0, 0x0] => {
                             sender.send(0x7).unwrap();
-                            ()
                         },
                         [0x53, 0x0, 0x0, 0x0] |
                         [0x73, 0x0, 0x0, 0x0] => {
                             sender.send(0x8).unwrap();
-                            ()
                         },
                         [0x44, 0x0, 0x0, 0x0] |
                         [0x64, 0x0, 0x0, 0x0] => {
                             sender.send(0x9).unwrap();
-                            ()
                         },
                         [0x59, 0x0, 0x0, 0x0] |
                         [0x79, 0x0, 0x0, 0x0] => {
                             sender.send(0xA).unwrap();
-                            ()
                         },
                         [0x43, 0x0, 0x0, 0x0] |
                         [0x63, 0x0, 0x0, 0x0] => {
                             sender.send(0xB).unwrap();
-                            ()
                         },
                         [0x34, 0x0, 0x0, 0x0] => {
                             sender.send(0xC).unwrap();
-                            ()
                         },
                         [0x52, 0x0, 0x0, 0x0] |
                         [0x72, 0x0, 0x0, 0x0] => {
                             sender.send(0xD).unwrap();
-                            ()
                         },
                         [0x46, 0x0, 0x0, 0x0] |
                         [0x66, 0x0, 0x0, 0x0] => {
                             sender.send(0xE).unwrap();
-                            ()
                         },
                         [0x56, 0x0, 0x0, 0x0] |
                         [0x76, 0x0, 0x0, 0x0] => {
                             sender.send(0xF).unwrap();
-                            ()
                         },
                         [0x1b, 0x0, 0x0, 0x0] => {
                             frontend::exit();
