@@ -18,15 +18,12 @@
 
  use std::{cmp::min, io::{self, Error, ErrorKind::Interrupted, Read, Write, stdin, stdout}, sync::{Arc, Mutex, mpsc::{Receiver, Sender}}, thread::{self, sleep}, time::Duration};
 
-#[cfg(target_os = "windows")]
-mod consoleapi;
-
 use crate::emu::display::DisplayCmd;
 
-#[cfg(target_os = "windows")]
+#[cfg(windows)]
 fn console_init() {
 	
-	use consoleapi::*;
+	use crate::util::winapi::consoleapi::*;
 	use std::os::windows::io::AsRawHandle;
 
 	

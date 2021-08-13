@@ -26,6 +26,7 @@ use std::sync::mpsc::channel;
 use std::thread::spawn;
 mod emu;
 mod frontend;
+mod util;
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
