@@ -9,6 +9,8 @@ use std::thread::spawn;
 mod emu;
 mod frontend;
 
+use frontend::Frontend;
+
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
 
@@ -22,14 +24,13 @@ fn main() {
     file.read(&mut rom).unwrap();
 
     let mut emulator = emu::Chip8Emu::new(rom);
+    let keyboard = init_keyboard_proxy(emulator.new_keyboard_driver());
+    let beep = emulator.is_beeping();
 
-    #[cfg(feature = "tui")]
-    frontend::init(emulator.get_screen_changes(), init_keyboard_proxy(emulator.new_keyboard_driver()), emulator.is_beeping());
+    #[cfg(feature = "frontend")]
+    Frontend::new(&mut emulator);
 
     emulator.run();
-
-    #[cfg(feature = "tui")]
-    frontend::exit();
 }
 
 fn init_keyboard_proxy(sender: Sender<u8>) -> Sender<[u8; 4]> {
@@ -100,7 +101,6 @@ fn init_keyboard_proxy(sender: Sender<u8>) -> Sender<[u8; 4]> {
                             sender.send(0xF).unwrap();
                         },
                         [0x1b, 0x0, 0x0, 0x0] => {
-                            frontend::exit();
                             exit(0)
                         },
                         _ => (),

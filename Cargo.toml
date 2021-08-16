@@ -15,7 +15,9 @@ termios = { version = "0.3.3", optional = true }
 
 [features]
 default = ["tui"]
-tui = ["termios"]
+frontend = []
+tui = ["frontend", "termios"]
 
 [profile.dev]
 overflow-checks = false
+
